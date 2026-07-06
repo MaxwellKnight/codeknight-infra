@@ -1,0 +1,32 @@
+name: Infra deploy
+on:
+  push:
+    branches: [main]
+    paths: [docker-compose.yml, Caddyfile]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rsync stack files and reload
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          SSHOPT="ssh -o StrictHostKeyChecking=yes -i ~/.ssh/id_ed25519"
+          rsync -az -e "$SSHOPT" docker-compose.yml Caddyfile \
+            "$SSH_USER@$SSH_HOST:/srv/codeknight-infra/"
+          $SSHOPT "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /srv/codeknight-infra
+          docker compose up -d
+          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+          REMOTE

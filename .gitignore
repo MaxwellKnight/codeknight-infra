@@ -1,0 +1,7 @@
+.infra-ids.env
+.env
+*.pem
+
+# local working notes / AI process files — not part of the deployable repo
+docs/
+.superpowers/

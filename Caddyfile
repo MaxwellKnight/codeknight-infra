@@ -1,0 +1,13 @@
+codeknight.dev {
+	encode zstd gzip
+	reverse_proxy codeknight:3000
+}
+
+www.codeknight.dev {
+	redir https://codeknight.dev{uri} permanent
+}
+
+nes.codeknight.dev {
+	encode zstd gzip
+	reverse_proxy nes:80
+}

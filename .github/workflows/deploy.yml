@@ -1,0 +1,47 @@
+name: Deploy service
+on:
+  workflow_call:
+    inputs:
+      service:   { required: true, type: string }   # compose service name
+      tag_var:   { required: true, type: string }   # env var in box .env, e.g. CODEKNIGHT_TAG
+      image_tag: { required: true, type: string }   # tag pushed to GHCR
+    secrets:
+      DEPLOY_SSH_KEY:     { required: true }
+      DEPLOY_HOST:        { required: true }
+      DEPLOY_USER:        { required: true }
+      DEPLOY_KNOWN_HOSTS: { required: true }
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency: deploy-${{ inputs.service }}
+    steps:
+      - name: Deploy over SSH
+        # inputs/secrets pass through env (never spliced into the script text)
+        env:
+          SVC: ${{ inputs.service }}
+          TAG_VAR: ${{ inputs.tag_var }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -o StrictHostKeyChecking=yes -i ~/.ssh/id_ed25519 "$SSH_USER@$SSH_HOST" \
+            SVC="$SVC" TAG_VAR="$TAG_VAR" IMAGE_TAG="$IMAGE_TAG" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /srv/codeknight-infra
+          touch .env
+          # rewrite the tag line without sed metacharacter exposure
+          grep -v "^${TAG_VAR}=" .env > .env.new || true
+          echo "${TAG_VAR}=${IMAGE_TAG}" >> .env.new
+          mv .env.new .env
+          docker compose pull "${SVC}"
+          docker compose up -d "${SVC}"
+          # reclaim old tagged app images (plain prune -f leaves tagged sha-* images)
+          docker image prune -af --filter "until=168h"
+          REMOTE

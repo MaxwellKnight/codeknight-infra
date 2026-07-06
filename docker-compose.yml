@@ -1,0 +1,35 @@
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - codeknight
+      - nes
+
+  codeknight:
+    image: ghcr.io/maxwellknight/codeknight:${CODEKNIGHT_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - WRITING_ENABLED=${WRITING_ENABLED:-}
+    expose:
+      - "3000"
+
+  nes:
+    image: ghcr.io/maxwellknight/nes:${NES_TAG:-latest}
+    restart: unless-stopped
+    expose:
+      - "80"
+
+volumes:
+  caddy_data:
+  caddy_config:
