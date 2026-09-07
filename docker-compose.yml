@@ -21,6 +21,19 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - WRITING_ENABLED=${WRITING_ENABLED:-}
+      # The internal area is dark unless all three are set: a missing or blank
+      # value means there is no account at all, never a weaker one. They live
+      # in .env on the box and are never committed.
+      - INTERNAL_EMAIL=${INTERNAL_EMAIL:-}
+      - INTERNAL_PASSWORD_HASH=${INTERNAL_PASSWORD_HASH:-}
+      - INTERNAL_SESSION_SECRET=${INTERNAL_SESSION_SECRET:-}
+      # Market data is optional; with no key the pull panel does not render.
+      - ALPHAVANTAGE_API_KEY=${ALPHAVANTAGE_API_KEY:-}
+      - DATA_DIR=/data
+    volumes:
+      # The valuation database. Without this the SQLite file lives in the
+      # container layer and every redeploy silently discards every valuation.
+      - codeknight_data:/data
     expose:
       - "3000"
 
@@ -33,3 +46,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  codeknight_data:

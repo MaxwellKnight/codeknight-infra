@@ -41,3 +41,13 @@ sshd -t && systemctl restart ssh ssh.socket
 dpkg-reconfigure -f noninteractive unattended-upgrades || true
 
 echo "BOOTSTRAP_OK"
+
+# --- nightly database backup ---
+# VACUUM INTO snapshot of the internal SQLite database, kept 14 days. Runs as
+# deploy because the script talks to the compose stack.
+install -d -o deploy -g deploy -m 0750 /srv/backups/codeknight
+cat > /etc/cron.d/codeknight-backup <<'CRON'
+# m h dom mon dow user command
+17 3 * * * deploy cd /srv/codeknight-infra && ./scripts/backup-db.sh >> /var/log/codeknight-backup.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/codeknight-backup
