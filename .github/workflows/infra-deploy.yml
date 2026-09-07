@@ -2,7 +2,7 @@ name: Infra deploy
 on:
   push:
     branches: [main]
-    paths: [docker-compose.yml, Caddyfile]
+    paths: [docker-compose.yml, Caddyfile, 'scripts/**']
   workflow_dispatch:
 
 jobs:
@@ -22,7 +22,9 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           SSHOPT="ssh -o StrictHostKeyChecking=yes -i ~/.ssh/id_ed25519"
-          rsync -az -e "$SSHOPT" docker-compose.yml Caddyfile \
+          # scripts/ travels too: the backup job lives there, and syncing only
+          # the compose file left it on GitHub and never on the box.
+          rsync -az -e "$SSHOPT" docker-compose.yml Caddyfile scripts \
             "$SSH_USER@$SSH_HOST:/srv/codeknight-infra/"
           $SSHOPT "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
